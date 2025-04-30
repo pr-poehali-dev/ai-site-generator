@@ -384,6 +384,7 @@ ${detectedIssues.fixedCode}
             </div>
           )}
 
+
           {/* Форма ввода */}
           <form onSubmit={handleSubmit} className="space-y-3">
             <Textarea
@@ -393,7 +394,10 @@ ${detectedIssues.fixedCode}
               className="min-h-[100px] resize-y"
               disabled={isLoading}
             />
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-slate-500">
+                Примеры: "Создай лендинг для кофейни", "Исправь ошибку в коде ```..."
+              </div>
               <Button type="submit" disabled={isLoading || !prompt.trim()}>
                 {isLoading ? (
                   <>
@@ -409,6 +413,7 @@ ${detectedIssues.fixedCode}
               </Button>
             </div>
           </form>
+
         </TabsContent>
         
         <TabsContent value="analysis" className="mt-0 space-y-4">
