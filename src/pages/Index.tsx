@@ -1,270 +1,158 @@
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import AiAssistant from "@/components/AiAssistant";
-import CodePreview from "@/components/CodePreview";
-import ProjectExplorer from "@/components/ProjectExplorer";
 import Icon from "@/components/ui/icon";
-import { Link } from "react-router-dom";
+import AiAssistant, { CodeAnalysisResult } from '@/components/AiAssistant';
+import ProjectExplorer from '@/components/ProjectExplorer';
+import CodePreview from '@/components/CodePreview';
 
 const Index = () => {
-  const [prompt, setPrompt] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim()) return;
+  const [activeTab, setActiveTab] = useState("create");
+  const [generatedCode, setGeneratedCode] = useState<string>("");
+  const [codeAnalysis, setCodeAnalysis] = useState<CodeAnalysisResult | null>(null);
+  const [previewContent, setPreviewContent] = useState<React.ReactNode>(null);
+
+  // Обработка ответа от AI
+  const handleAiResponse = (response: string) => {
+    // Если в ответе есть код, извлекаем его
+    const codeMatch = response.match(/```(?:jsx|tsx|javascript|typescript|js|ts)?\n([\s\S]*?)\n```/);
+    if (codeMatch && codeMatch[1]) {
+      setGeneratedCode(codeMatch[1]);
+      
+      // Пытаемся создать предварительный просмотр из кода
+      try {
+        // Это упрощенный подход, в реальном приложении нужно использовать более безопасные методы
+        const previewElement = document.createElement('div');
+        previewElement.innerHTML = codeMatch[1]
+          .replace(/import .+?\n/g, '') // Удаляем импорты
+          .replace(/export default .+?;?$/gm, '') // Удаляем экспорты
+          .replace(/className="([^"]*)"/g, 'class="$1"') // Заменяем className на class
+          .replace(/{([^{}]*)}/g, (match, p1) => {
+            // Упрощенная обработка JSX выражений
+            if (p1.trim().startsWith('/*') || p1.includes('//')) return match;
+            if (/^\s*\w+\s*$/.test(p1)) return p1.trim(); // Простая переменная
+            return ''; // Сложные выражения удаляем для безопасности
+          });
+          
+        setPreviewContent(<div dangerouslySetInnerHTML={{ __html: previewElement.innerHTML }} />);
+      } catch (error) {
+        console.error('Ошибка при создании предпросмотра:', error);
+      }
+    }
+  };
+
+  // Обработка исправления кода
+  const handleCodeFix = (originalCode: string, fixedCode: string) => {
+    setGeneratedCode(fixedCode);
     
-    setIsProcessing(true);
-    // Имитация обработки запроса
-    setTimeout(() => {
-      setIsProcessing(false);
-    }, 2000);
+    // Обновляем анализ кода, указывая, что ошибки исправлены
+    if (codeAnalysis) {
+      setCodeAnalysis({
+        ...codeAnalysis,
+        errors: [],
+        suggestions: [...codeAnalysis.suggestions, 'Все ошибки успешно исправлены'],
+        fixedCode: undefined
+      });
+    }
+  };
+
+  // Обработка анализа кода
+  const handleCodeAnalysis = (analysis: CodeAnalysisResult) => {
+    setCodeAnalysis(analysis);
+    
+    // Если есть исправленный код, обновляем его
+    if (analysis.fixedCode) {
+      setGeneratedCode(analysis.fixedCode);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Шапка */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="container flex items-center justify-between h-16 px-4 mx-auto">
+    <div className="container mx-auto py-6 flex flex-col min-h-screen">
+      <header className="pb-6">
+        <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Icon name="Code" className="text-primary" size={24} />
-            <h1 className="text-xl font-bold">AI Web Builder</h1>
+            <Icon name="Code2" size={32} className="text-primary" />
+            <div>
+              <h1 className="text-2xl font-bold">AI Code Assistant</h1>
+              <p className="text-sm text-slate-500">Умный помощник для создания и анализа кода</p>
+            </div>
           </div>
-          <nav className="flex items-center gap-4">
-            <Link to="/" className="text-sm font-medium hover:text-primary">Главная</Link>
-            <Link to="/projects" className="text-sm font-medium hover:text-primary">Проекты</Link>
-            <Link to="/docs" className="text-sm font-medium hover:text-primary">Документация</Link>
-            <Button variant="default" size="sm">
-              <Icon name="Plus" size={16} />
-              Новый проект
+          <nav className="flex gap-2">
+            <Button asChild variant="ghost">
+              <Link to="/">
+                <Icon name="Home" className="mr-2" size={16} />
+                Главная
+              </Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link to="/projects">
+                <Icon name="Folder" className="mr-2" size={16} />
+                Проекты
+              </Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link to="/docs">
+                <Icon name="FileText" className="mr-2" size={16} />
+                Документация
+              </Link>
             </Button>
           </nav>
         </div>
       </header>
 
-      {/* Основной контент */}
-      <main className="container px-4 py-8 mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Левая колонка - инструкции и AI помощник */}
-          <div className="lg:col-span-1">
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>AI Web Builder</CardTitle>
-                <CardDescription>
-                  Создавайте сайты с помощью искусственного интеллекта
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600 mb-4">
-                  Опишите, что вы хотите создать, и наш AI помощник сгенерирует код, 
-                  найдет ошибки и предложит улучшения для вашего проекта.
-                </p>
-                <ul className="space-y-2 text-sm text-slate-600">
-                  <li className="flex items-start gap-2">
-                    <Icon name="CheckCircle" className="text-green-500 mt-0.5" size={16} />
-                    <span>Анализ кода и поиск ошибок</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Icon name="CheckCircle" className="text-green-500 mt-0.5" size={16} />
-                    <span>Генерация компонентов и страниц</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Icon name="CheckCircle" className="text-green-500 mt-0.5" size={16} />
-                    <span>Предпросмотр созданного сайта</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Помощник</CardTitle>
-                <CardDescription>
-                  Задайте вопрос или опишите задачу
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit}>
-                  <div className="grid gap-4">
-                    <div className="flex flex-col gap-2">
-                      <Input
-                        className="min-h-[100px] resize-y"
-                        placeholder="Опишите, что нужно создать или исправить..."
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        disabled={isProcessing}
-                        as="textarea"
-                      />
-                    </div>
-                    <Button type="submit" disabled={isProcessing}>
-                      {isProcessing ? (
-                        <>
-                          <Icon name="Loader2" className="animate-spin" />
-                          Обработка...
-                        </>
-                      ) : (
-                        <>
-                          <Icon name="Zap" />
-                          Запустить AI
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Правая колонка - превью и результаты */}
-          <div className="lg:col-span-2">
-            <Tabs defaultValue="preview" className="mb-6">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="preview">
-                  <Icon name="Eye" className="mr-2" />
-                  Предпросмотр
-                </TabsTrigger>
-                <TabsTrigger value="code">
-                  <Icon name="Code" className="mr-2" />
-                  Код
-                </TabsTrigger>
-                <TabsTrigger value="files">
-                  <Icon name="Folder" className="mr-2" />
-                  Файлы проекта
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="preview" className="mt-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="border rounded-md bg-white p-4 min-h-[500px]">
-                      <div className="flex flex-col items-center justify-center h-full text-center text-slate-500">
-                        <Icon name="Layout" size={48} className="mb-4 opacity-20" />
-                        <p>Здесь будет отображаться предпросмотр вашего сайта</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="code" className="mt-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="border rounded-md bg-slate-950 text-slate-100 p-4 min-h-[500px] font-mono text-sm overflow-auto">
-                      <p className="text-slate-400">// Здесь будет отображаться код вашего проекта</p>
-                      <p className="text-blue-400">import</p> <p className="text-slate-100">React from 'react';</p>
-                      <br />
-                      <p className="text-blue-400">function</p> <p className="text-yellow-400">App</p><p className="text-slate-100">() {`{`}</p>
-                      <p className="pl-4 text-slate-100">return (</p>
-                      <p className="pl-8 text-slate-100">{`<div>Ваше приложение</div>`}</p>
-                      <p className="pl-4 text-slate-100">);</p>
-                      <p className="text-slate-100">{`}`}</p>
-                      <br />
-                      <p className="text-blue-400">export</p> <p className="text-blue-400">default</p> <p className="text-slate-100">App;</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="files" className="mt-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="border rounded-md bg-white p-4 min-h-[500px]">
-                      <div className="text-sm">
-                        <div className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md cursor-pointer">
-                          <Icon name="Folder" size={16} className="text-yellow-500" />
-                          <span>src</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md cursor-pointer ml-4">
-                          <Icon name="Folder" size={16} className="text-yellow-500" />
-                          <span>components</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md cursor-pointer ml-4">
-                          <Icon name="Folder" size={16} className="text-yellow-500" />
-                          <span>pages</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md cursor-pointer ml-8">
-                          <Icon name="FileCode" size={16} className="text-blue-500" />
-                          <span>index.tsx</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md cursor-pointer ml-4">
-                          <Icon name="FileCode" size={16} className="text-purple-500" />
-                          <span>App.tsx</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded-md cursor-pointer ml-4">
-                          <Icon name="FileCode" size={16} className="text-green-500" />
-                          <span>main.tsx</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Анализ и рекомендации</CardTitle>
-                <CardDescription>
-                  Результаты анализа кода и предложения по улучшению
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-md bg-green-50 border-green-200">
-                    <div className="flex items-start gap-3">
-                      <Icon name="CheckCircle" className="text-green-500 mt-1" />
-                      <div>
-                        <h3 className="font-medium text-green-700">Рекомендация по оптимизации</h3>
-                        <p className="text-sm text-green-600">Рекомендуется использовать React.memo для оптимизации производительности компонента.</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4 border rounded-md bg-amber-50 border-amber-200">
-                    <div className="flex items-start gap-3">
-                      <Icon name="AlertTriangle" className="text-amber-500 mt-1" />
-                      <div>
-                        <h3 className="font-medium text-amber-700">Предупреждение в коде</h3>
-                        <p className="text-sm text-amber-600">Обнаружена потенциальная утечка памяти из-за отсутствия очистки эффектов.</p>
-                        <pre className="mt-2 p-2 bg-white border border-amber-200 rounded text-xs overflow-auto">
-{`useEffect(() => {
-  const timer = setInterval(() => {
-    // Ваш код
-  }, 1000);
-  // Отсутствует очистка
-}, []);`}
-                        </pre>
-                        <p className="text-sm text-amber-600 mt-2">Исправленный вариант:</p>
-                        <pre className="mt-2 p-2 bg-white border border-amber-200 rounded text-xs overflow-auto">
-{`useEffect(() => {
-  const timer = setInterval(() => {
-    // Ваш код
-  }, 1000);
-  return () => clearInterval(timer);
-}, []);`}
-                        </pre>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </main>
-
-      {/* Подвал */}
-      <footer className="border-t border-slate-200 py-6 bg-white mt-10">
-        <div className="container px-4 mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-slate-500">© 2025 AI Web Builder. Все права защищены.</p>
-            <div className="flex gap-4 mt-4 md:mt-0">
-              <Link to="/terms" className="text-sm text-slate-500 hover:text-primary">Условия использования</Link>
-              <Link to="/privacy" className="text-sm text-slate-500 hover:text-primary">Политика конфиденциальности</Link>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow">
+        <TabsList className="grid grid-cols-2 w-full">
+          <TabsTrigger value="create">
+            <Icon name="Plus" className="mr-2" size={16} />
+            Создать проект
+          </TabsTrigger>
+          <TabsTrigger value="analyze">
+            <Icon name="Search" className="mr-2" size={16} />
+            Анализ кода
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="create" className="flex-grow">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <AiAssistant 
+                onResponse={handleAiResponse} 
+                onCodeFix={handleCodeFix}
+                onCodeAnalysis={handleCodeAnalysis}
+              />
+            </div>
+            <div>
+              <CodePreview code={generatedCode} preview={previewContent} />
             </div>
           </div>
-        </div>
+        </TabsContent>
+        
+        <TabsContent value="analyze" className="flex-grow">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+            <div className="lg:col-span-1">
+              <ProjectExplorer onSelectFile={(file) => {
+                // В реальном приложении здесь был бы запрос к API
+                // для получения содержимого файла
+                setGeneratedCode(`// Содержимое файла ${file.name}${file.extension ? `.${file.extension}` : ''}\n\n// Это демонстрационный пример. В реальном приложении здесь было бы содержимое файла.`);
+              }} />
+            </div>
+            <div className="lg:col-span-2 flex flex-col gap-6">
+              <AiAssistant 
+                onResponse={handleAiResponse}
+                onCodeFix={handleCodeFix}
+                onCodeAnalysis={handleCodeAnalysis}
+              />
+              <CodePreview code={generatedCode} preview={previewContent} />
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <footer className="mt-6 border-t pt-4 text-center text-sm text-slate-500">
+        <p>© 2025 AI Code Assistant - Интеллектуальный инструмент для разработчиков</p>
       </footer>
     </div>
   );
